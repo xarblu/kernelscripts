@@ -2,7 +2,7 @@
 
 ### VARIABLES ###
 # Internal Variables
-VERSION="1.0"
+VERSION="1.1"
 
 ### FUNCTIONS ###
 # Prompt the user to choose between 2 options optionally with a preselected default
@@ -38,6 +38,18 @@ function prompt_2_opts() {
 	esac
 }
 
+# Set the terminal title to $1 for supported terminals
+function set_title() {
+	case ${TERM} in
+		[aEkx]term*|rxvt*|gnome*|konsole*|alacritty|interix|tmux*)
+			printf "\033]0;${1}\007"
+			;;
+		screen*)
+			printf "\[\033k${1}\033\\"
+			;;
+	esac
+}
+
 function help_handler() {
 	echo "kernelcleaner from kernelscripts version ${VERSION}"
 	echo "Usage: kernelcleaner [options...]"
@@ -68,6 +80,7 @@ fi
 
 # Remove kernels with systemd's kernel-install if available
 if [[ -n $(command -v kernel-install) ]]; then
+	set_title "kernelcleaner: kernel-install remove"
 	echo -e "\e[1;34mUsing systemd's kernel-install to remove kernels!\e[0m"
 	# Get a list of installed kernels
 	read MACHINE_ID < /etc/machine-id
@@ -85,7 +98,7 @@ if [[ -n $(command -v kernel-install) ]]; then
 			if [[ -d ${moddir} ]]; then
 				echo -n -e "\e[1;34mAlso remove \e[1;36m${moddir}\e[1;34m? [\e[1;32my\e[1;34m/\e[1;31mn\e[1;34m]: \e[0m"
 				if prompt_2_opts y n 0; then
-					rm -I -r ${moddir}
+					rm -v -r ${moddir}
 				fi
 			fi
 			srcdir="$(grep -I -H ${kernel} /usr/src/linux-*/include/config/kernel.release 2>/dev/null)"
@@ -93,7 +106,7 @@ if [[ -n $(command -v kernel-install) ]]; then
 			if [[ -d ${srcdir} ]]; then
 				echo -n -e "\e[1;34mAlso remove \e[1;36m${srcdir}\e[1;34m? [\e[1;32my\e[1;34m/\e[1;31mn\e[1;34m]: \e[0m"
 				if prompt_2_opts y n 0; then
-					rm -I -r ${srcdir}
+					rm -v -r ${srcdir}
 				fi
 			fi
 		else
@@ -104,6 +117,7 @@ fi
 
 # Run eclean kernel to remove some potentially leftover files
 if [[ -n $(command -v eclean-kernel) ]]; then
+	set_title "kernelcleaner: eclean-kernel"
 	echo -n -e "\e[1;34mRun eclean-kernel? [\e[1;32my\e[1;34m/\e[1;31mn\e[1;34m]: \e[0m"
 	if  prompt_2_opts y n 0; then
 		eclean-kernel --no-kernel-install
@@ -112,6 +126,7 @@ fi
 
 # Run grub-mkconfig
 if [[ -n $(command -v grub-mkconfig) ]]; then
+	set_title "kernelcleaner: grub-mkconfig"
  	echo -n -e "\e[1;34mRun grub-mkconfig? [\e[1;32my\e[1;34m/\e[1;31mn\e[1;34m]: \e[0m"
 	if  prompt_2_opts y n 0; then
 		grub-mkconfig -o /boot/grub/grub.cfg
