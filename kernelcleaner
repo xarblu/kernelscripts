@@ -22,6 +22,7 @@ function prompt_2_opts() {
 				return ${3}
 			else
 				echo -n -e "\e[1;34mTry again. [${1}/${2}]:\e[0m"
+				prompt_2_opts ${1} ${2}
 			fi
 			;;
 		*)
