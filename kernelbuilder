@@ -7,12 +7,17 @@
 
 ### VARIABLES ###
 # Internal Variables
-VERSION="1.1"
+VERSION="2.0"
 
 # Default values for flags
 USE_LLVM="0"
 USE_CCACHE="0"
 JOBS="$(nproc)"
+EXTRA_MAKEOPTS=""
+EXTRA_CPPFLAGS=""
+EXTRA_AFLAGS=""
+EXTRA_CFLAGS=""
+EXTRA_RUSTFLAGS=""
 MENUCONFIG="0"
 
 # User overwriteable VARS
@@ -68,8 +73,8 @@ function set_title() {
 
 # Check if all tools can be found and print which will be used
 function check_tool_availability() {
-	llvm_tools=( clang clang++ ld.lld llvm-ar llvm-nm llvm-strip llvm-objcopy llvm-objdump llvm-readelf )
-	gnu_tools=( gcc g++ ld.bfd  ar nm strip objcopy objdump readelf )
+	llvm_tools=( clang clang++ ld.lld llvm-ar llvm-nm llvm-strip llvm-objcopy llvm-objdump llvm-readelf rustc )
+	gnu_tools=( gcc g++ ld.bfd  ar nm strip objcopy objdump readelf rustc )
 
 	if [[ ${USE_LLVM} == 1 ]]; then
 		tools=( ${llvm_tools[*]} )
@@ -92,11 +97,16 @@ function check_tool_availability() {
 function help_handler() {
 	echo "kernelbuilder from kernelscripts version ${VERSION}"
 	echo "Usage: kernelbuilder [options...]"
-	echo "  --llvm            Use the LLVM toolchain to build the kernel"
-	echo "  --ccache          Prepend ccache wrappers from \${CCACHE_WRAP_DIR}"
-	echo "  --jobs=<jobs>     Override the number of make jobs"
-	echo "  --menuconfig      Launch menuconfig before compiling anything"
-	echo "  -h,--help         Print this help message"
+	echo "  --llvm               Use the LLVM toolchain to build the kernel"
+	echo "  --ccache             Prepend ccache wrappers from \${CCACHE_WRAP_DIR}"
+	echo "  --jobs <jobs>        Override the number of make jobs (default: \$(nproc))"
+	echo "  --makeopts <opts>    Append extra makeopts"
+	echo "  --cppflags <flags>   Append extra cppflags"
+	echo "  --aflags <flags>     Append extra aflags"
+	echo "  --cflags <flags>     Append extra cflags"
+	echo "  --rustflags <flags>  Append extra rustflags"
+	echo "  --menuconfig         Launch menuconfig before compiling anything"
+	echo "  -h,--help            Print this help message"
 	echo ""
 	echo "Environment Variables:"
 	echo "  CCACHE_WRAP_DIR   Path to ccache wrappers (default: /usr/bin/ccache)"
@@ -104,30 +114,54 @@ function help_handler() {
 }
 
 # Handle CLI flags
-for flag in ${@}; do
-	case ${flag} in
+while [[ $# -gt 0 ]]; do
+	case ${1} in
 		--llvm)
 			USE_LLVM=1
+			shift
 			;;
 		--ccache)
 			USE_CCACHE=1
+			shift
 			;;
-		--jobs=*)
-			JOBS="${flag##--jobs=}"
+		--jobs)
+			JOBS="${2}"
 			if ! [[ ${JOBS} =~ ^[0-9]+$ ]]; then
-				echo -e "\e[1;34m\e[1;36m${JOBS}\e[1;34m isn't a valid value for \e[1;36m--jobs=<jobs>\e[1;34m.\e[0m"
+				echo -e "\e[1;34m\e[1;36m${JOBS}\e[1;34m isn't a valid value for \e[1;36m--jobs <jobs>\e[1;34m.\e[0m"
 				exit 1
 			fi
+			shift 2
+			;;
+		--makeopts)
+			EXTRA_MAKEOPTS="${2}"
+			shift 2
+			;;
+		--cppflags)
+			EXTRA_CPPFLAGS="${2}"
+			shift 2
+			;;
+		--aflags)
+			EXTRA_AFLAGS="${2}"
+			shift 2
+			;;
+		--cflags)
+			EXTRA_CFLAGS="${2}"
+			shift 2
+			;;
+		--rustflags)
+			EXTRA_RUSTFLAGS="${2}"
+			shift 2
 			;;
 		--menuconfig)
 			MENUCONFIG=1
+			shift
 			;;
 		-h|--help)
 			help_handler
 			exit
 			;;
 		*)
-			echo -e "\e[1;34m\e[1;36m${flag}\e[1;34m isn't a valid option.\e[0m"
+			echo -e "\e[1;34m\e[1;36m${1}\e[1;34m isn't a valid option.\e[0m"
 			echo -e "\e[1;34mSee \e[1;36m--help\e[1;34m for more info.\e[0m"
 			exit 1
 			;;
@@ -155,12 +189,17 @@ check_tool_availability
 
 # Build make parameters
 declare -a MAKEPARAMS
-if [[ ${USE_LLVM} == 1 ]]; then
-	MAKEPARAMS=( ${MAKEPARAMS[*]} LLVM=1 )
-fi
-if [[ -n ${JOBS} ]]; then
-	MAKEPARAMS=( ${MAKEPARAMS[*]} -j${JOBS} )
-fi
+[[ -n ${JOBS} ]] && MAKEPARAMS+=( -j${JOBS} )
+[[ ${USE_LLVM} == 1 ]] && MAKEPARAMS+=( LLVM=1 )
+[[ -n ${EXTRA_MAKEOPTS} ]] && MAKEPARAMS+=( ${EXTRA_MAKEOPTS} )
+[[ -n ${EXTRA_CPPFLAGS} ]] && MAKEPARAMS+=( "KCPPFLAGS=${EXTRA_CPPFLAGS}" )
+[[ -n ${EXTRA_AFLAGS} ]] && MAKEPARAMS+=( "KAFLAGS=${EXTRA_AFLAGS}\"" )
+[[ -n ${EXTRA_CFLAGS} ]] && MAKEPARAMS+=( "KCFLAGS=${EXTRA_CFLAGS}" )
+[[ -n ${EXTRA_RUSTFLAGS} ]] && MAKEPARAMS+=( "KRUSTFLAGS=${EXTRA_RUSTFLAGS}" )
+
+# Print MAKEOPTS
+echo -e "\e[1;36mmake\e[1;34m will use the following options:\e[0m"
+echo -e "\e[1;36m${MAKEPARAMS[@]}\e[1;34m"
 
 # Enter kernel directory
 if [[ ! -d ${LINUX_SRC_DIR} ]]; then
@@ -173,27 +212,27 @@ fi
 # Clean ahead of time
 set_title "kernelbuilder: make clean"
 echo -e "\e[1;34mCleaning up old objects!\e[0m"
-make ${MAKEPARAMS[*]} clean || exit 1
+make "${MAKEPARAMS[@]}" clean || exit 1
 
 # Handle different config situations
 set_title "kernelbuilder: config"
 if [[ -f .config ]]; then
 	echo -n -e "\e[1;34mExisting config found! Reuse? [\e[1;32my\e[1;34m/\e[1;31mn\e[1;34m]: \e[0m"
 	if prompt_2_opts y n 0; then
-		make ${MAKEPARAMS[*]} oldconfig || exit 1
+		make "${MAKEPARAMS[@]}" oldconfig || exit 1
 	else
 		echo -n -e "\e[1;34mUse running kernel's config [1] or start fresh [2]? [1/2]: \e[0m"
 		if prompt_2_opts 1 2; then
 			if [[ -f /proc/config.gz ]]; then
 				zcat /proc/config.gz > .config || exit 1
-				make ${MAKEPARAMS[*]} oldconfig || exit 1
+				make "${MAKEPARAMS[@]}" oldconfig || exit 1
 			else
 				echo -e "\e[1;34mRunning kernel doesn't have /proc/config.gz!\e[0m"
 				exit 1
 			fi
 		else
 			rm .config
-			make ${MAKEPARAMS[*]} prepare || exit 1
+			make "${MAKEPARAMS[@]}" prepare || exit 1
 		fi
 	fi
 
@@ -201,10 +240,10 @@ else
 	echo -n -e "\e[1;34mNo existing config found! Use running kernel's config? [\e[1;32my\e[1;34m/\e[1;31mn\e[1;34m]: \e[0m"
 	if prompt_2_opts y n 0; then
 		zcat /proc/config.gz > .config || exit 1
-		make ${MAKEPARAMS[*]} oldconfig || exit 1
+		make "${MAKEPARAMS[@]}" oldconfig || exit 1
 	else
 		echo -e "\e[1;34mNot reusing any config!\e[0m"
-		make ${MAKEPARAMS[*]} prepare || exit 1
+		make "${MAKEPARAMS[@]}" prepare || exit 1
 	fi
 fi
 
@@ -212,22 +251,22 @@ fi
 if [[ ${MENUCONFIG} == 1 ]]; then
 	set_title "kernelbuilder: make menuconfig"
 	echo -e "\e[1;34mRunning menuconfig!\e[0m"
-	make ${MAKEPARAMS[*]} menuconfig || exit 1
+	make "${MAKEPARAMS[@]}" menuconfig || exit 1
 fi
 
 #Building the kernel
-KERNEL_VER="$(make ${MAKEPARAMS[*]} kernelrelease)"
+KERNEL_VER="$(make "${MAKEPARAMS[@]}" kernelrelease)"
 set_title "kernelbuilder: build"
 echo -n -e "\e[1;34mStart building Linux Kernel \e[1;36m${KERNEL_VER}\e[1;34m? [\e[1;32my\e[1;34m/\e[1;31mn\e[1;34m]: \e[0m"
 if ! prompt_2_opts y n 0; then
 	exit 1
 fi
 echo -e "\e[1;34mBuilding the Kernel and Modules!\e[0m"
-make ${MAKEPARAMS[*]} all || exit 1
+make "${MAKEPARAMS[@]}" all || exit 1
 echo -e "\e[1;34mInstalling Modules!\e[0m"
-make ${MAKEPARAMS[*]} modules_install || exit 1
+make "${MAKEPARAMS[@]}" modules_install || exit 1
 echo -e "\e[1;34mInstalling bzImage and initrd!\e[0m"
-make ${MAKEPARAMS[*]} install || exit 1
+make "${MAKEPARAMS[@]}" install || exit 1
 popd > /dev/null
 
 #rebuild oot-modules on Gentoo
