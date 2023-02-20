@@ -1,4 +1,4 @@
-# v3.1
+# v4.0
 - add `--skip-clean` option
 - add `--version`
 - fix menuconfig default
