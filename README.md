@@ -1,5 +1,4 @@
-#kernelscripts
-
+# kernelscripts
 ~ Basic scripts to manage kernels ~
 
 This is primarily intended for Gentoo Linux due to paths 
