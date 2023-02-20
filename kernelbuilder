@@ -7,7 +7,7 @@
 
 ### VARIABLES ###
 # Internal Variables
-VERSION="3.0"
+VERSION="4.0"
 
 # Default values for flags
 USE_LLVM="0"
@@ -19,7 +19,8 @@ EXTRA_AFLAGS=""
 EXTRA_CFLAGS=""
 EXTRA_RUSTFLAGS=""
 VERBOSITY="0"
-CONFIG_TOOL="menuconfig"
+CLEAN="1"
+CONFIG_TOOL=""
 
 # User overwriteable VARS
 CCACHE_WRAP_DIR="${CCACHE_WRAP_DIR:=/usr/lib/ccache/bin}"
@@ -107,7 +108,9 @@ function help_handler() {
 	echo "  --cflags <flags>     Append extra cflags"
 	echo "  --rustflags <flags>  Append extra rustflags"
 	echo "  --config-tool <tool> Launch your preferred config tool before compiling anything"
+	echo "  --skip-clean         Skip make clean"
 	echo "  --verbose            Print verbose make output"
+	echo "  --version            Print version information"
 	echo "  -h,--help            Print this help message"
 	echo ""
 	echo "Environment Variables:"
@@ -174,9 +177,17 @@ while [[ $# -gt 0 ]]; do
 			fi
 			shift 2
 			;;
+		--skip-clean)
+			CLEAN=0
+			shift
+			;;
 		--verbose)
 			VERBOSITY=1
 			shift
+			;;
+		--version)
+			echo "kernelbuilder version ${VERSION}"
+			exit
 			;;
 		-h|--help)
 			help_handler
@@ -232,9 +243,11 @@ else
 fi
 
 # Clean ahead of time
-set_title "kernelbuilder: make clean"
-echo -e "\e[1;34mCleaning up old objects!\e[0m"
-make_wrapper clean || exit 1
+if [[ ${CLEAN} == 1 ]]; then
+	set_title "kernelbuilder: make clean"
+	echo -e "\e[1;34mCleaning up old objects!\e[0m"
+	make_wrapper clean || exit 1
+fi
 
 # Handle different config situations
 set_title "kernelbuilder: config"

@@ -1,15 +1,20 @@
-#v3.0
+# v3.1
+- add `--skip-clean` option
+- add `--version`
+- fix menuconfig default
+
+# v3.0
 - add `--verbose` option
 - allow choosing config tool via `--config-tool`
 
-#v2.0
+# v2.0
 - Allow passing different flags to the build process.
   These include {CPP,A,C,RUST}FLAGS and 
   a general `--makeopts` switch
 - show rustc path
 
-#v1.1
+# v1.1
 - Supported terminals now display status in the title
 
-#v1.0
+# v1.0
 - Initial release
