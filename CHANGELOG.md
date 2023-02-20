@@ -1,3 +1,7 @@
+#v3.0
+- add `--verbose` option
+- allow choosing config tool via `--config-tool`
+
 #v2.0
 - Allow passing different flags to the build process.
   These include {CPP,A,C,RUST}FLAGS and 
