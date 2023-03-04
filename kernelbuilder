@@ -7,7 +7,7 @@
 
 ### VARIABLES ###
 # Internal Variables
-VERSION="4.0"
+VERSION="5.0"
 
 # Default values for flags
 USE_LLVM="0"
@@ -19,7 +19,7 @@ EXTRA_AFLAGS=""
 EXTRA_CFLAGS=""
 EXTRA_RUSTFLAGS=""
 VERBOSITY="0"
-CLEAN="1"
+CLEAN="0"
 CONFIG_TOOL=""
 
 # User overwriteable VARS
@@ -108,7 +108,8 @@ function help_handler() {
 	echo "  --cflags <flags>     Append extra cflags"
 	echo "  --rustflags <flags>  Append extra rustflags"
 	echo "  --config-tool <tool> Launch your preferred config tool before compiling anything"
-	echo "  --skip-clean         Skip make clean"
+	echo "  --clean              Run make clean"
+	echo "  --mrproper           Run make mrproper"
 	echo "  --verbose            Print verbose make output"
 	echo "  --version            Print version information"
 	echo "  -h,--help            Print this help message"
@@ -177,8 +178,12 @@ while [[ $# -gt 0 ]]; do
 			fi
 			shift 2
 			;;
-		--skip-clean)
-			CLEAN=0
+		--clean)
+			CLEAN=1
+			shift
+			;;
+		--mrproper)
+			CLEAN=2
 			shift
 			;;
 		--verbose)
@@ -245,8 +250,13 @@ fi
 # Clean ahead of time
 if [[ ${CLEAN} == 1 ]]; then
 	set_title "kernelbuilder: make clean"
-	echo -e "\e[1;34mCleaning up old objects!\e[0m"
+	echo -e "\e[1;34mCleaning up old objects (make clean)!\e[0m"
 	make_wrapper clean || exit 1
+fi
+if [[ ${CLEAN} == 2 ]]; then
+	set_title "kernelbuilder: make mrproper"
+	echo -e "\e[1;34mCleaning up old objects (make mrproper)!\e[0m"
+	make_wrapper mrproper || exit 1
 fi
 
 # Handle different config situations

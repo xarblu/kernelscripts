@@ -1,3 +1,7 @@
+# v5.0
+- default to no clean
+- enable clean with explicit `--clean` or `--mrproper`
+
 # v4.0
 - add `--skip-clean` option
 - add `--version`
