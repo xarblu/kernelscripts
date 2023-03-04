@@ -2,7 +2,7 @@
 
 ### VARIABLES ###
 # Internal Variables
-VERSION="4.0"
+VERSION="5.0"
 
 ### FUNCTIONS ###
 # Prompt the user to choose between 2 options optionally with a preselected default
