@@ -1,3 +1,8 @@
+# v6.0
+- print time-elapsed stats when done
+- replace cursed regex
+- drop `kernelcleaner` as it was basically just a crappy `eclean-kernel` wrapper
+
 # v5.0
 - default to no clean
 - enable clean with explicit `--clean` or `--mrproper`
