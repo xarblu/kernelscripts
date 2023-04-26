@@ -188,7 +188,7 @@ while [[ $# -gt 0 ]]; do
 			shift 2
 			;;
 		--config-tool)
-			if [[ "${2}" =~ [(n)(menu)(x)(g)]?config ]]; then
+            if [[ "${2}" =~ (n|menu|x|g)?config ]]; then
 				CONFIG_TOOL="${2}"
 			else
 				echo -e "\e[1;34m\e[1;36m${2}\e[1;34m isn't a valid option for \e[1;36m${1}\e[1;34m.\e[0m"
