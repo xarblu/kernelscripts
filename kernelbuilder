@@ -7,7 +7,7 @@
 
 ### VARIABLES ###
 # Internal Variables
-VERSION="5.0"
+VERSION="6.0"
 
 # Default values for flags
 USE_LLVM="0"
@@ -117,6 +117,24 @@ function help_handler() {
 	echo "Environment Variables:"
 	echo "  CCACHE_WRAP_DIR   Path to ccache wrappers (default: /usr/bin/ccache)"
 	echo "  LINUX_SRC_DIR     Path to linux source (default: /usr/src/linux)"
+}
+
+function timer() {
+    case $1 in
+        reset)
+            SECONDS=0
+            ;;
+        elapsed)
+            local ELAPSED=${SECONDS}
+            local HH=$(( ${ELAPSED} / 3600 )); ELAPSED=$(( ${ELAPSED} % 3600 ))
+            local MM=$(( ${ELAPSED} / 60 )); ELAPSED=$(( ${ELAPSED} % 60 ))
+            local SS=${ELAPSED}
+            [[ ${HH} -lt 10 ]] && HH="0${HH}"
+            [[ ${MM} -lt 10 ]] && MM="0${MM}"
+            [[ ${SS} -lt 10 ]] && SS="0${SS}"
+            echo -n "${HH}:${MM}:${SS}"
+            ;;
+    esac
 }
 
 function make_wrapper() {
@@ -280,7 +298,6 @@ if [[ -f .config ]]; then
 			make_wrapper prepare || exit 1
 		fi
 	fi
-
 else
 	echo -n -e "\e[1;34mNo existing config found! Use running kernel's config? [\e[1;32my\e[1;34m/\e[1;31mn\e[1;34m]: \e[0m"
 	if prompt_2_opts y n 0; then
@@ -307,16 +324,29 @@ if ! prompt_2_opts y n 0; then
 	exit 1
 fi
 echo -e "\e[1;34mBuilding the Kernel and Modules!\e[0m"
+timer reset
 make_wrapper all || exit 1
+TIME_ELAPSED_BUILD="$(timer elapsed)"
 echo -e "\e[1;34mInstalling Modules!\e[0m"
+timer reset
 make_wrapper modules_install || exit 1
 echo -e "\e[1;34mInstalling bzImage and initrd!\e[0m"
 make_wrapper install || exit 1
+TIME_ELAPSED_INSTALL="$(timer elapsed)"
 popd > /dev/null
 
 #rebuild oot-modules on Gentoo
+timer reset
 if [[ -n $(command -v emerge) ]]; then
 	set_title "kernelbuilder: module-rebuild"
 	echo -e "\e[1;34mRebuilding out-of-tree modules!\e[0m"
-	emerge --ask=n --jobs=1 @module-rebuild || exit 1
+	emerge --ask=n @module-rebuild || exit 1
 fi
+TIME_ELAPSED_POSTINST="$(timer elapsed)"
+
+#Print some fancy stats cuz why not
+echo -e "\e[1;34mSome kernelbuilder stats:\e[0m"
+echo -e "\e[1;34mTime needed for:\e[0m"
+echo -e "\e[1;34m-> Build:       \e[1;36m${TIME_ELAPSED_BUILD:-00:00:00}\e[0m"
+echo -e "\e[1;34m-> Install:     \e[1;36m${TIME_ELAPSED_INSTALL:-00:00:00}\e[0m"
+echo -e "\e[1;34m-> PostInstall: \e[1;36m${TIME_ELAPSED_POSTINST:-00:00:00}\e[0m"
