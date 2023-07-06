@@ -1,3 +1,6 @@
+# v7.0
+- sccache support
+
 # v6.0
 - print time-elapsed stats when done
 - replace cursed regex

@@ -7,11 +7,12 @@
 
 ### VARIABLES ###
 # Internal Variables
-VERSION="6.0"
+VERSION="7.0"
 
 # Default values for flags
 USE_LLVM="0"
 USE_CCACHE="0"
+USE_SCCACHE="0"
 JOBS="$(nproc)"
 EXTRA_MAKEOPTS=""
 EXTRA_CPPFLAGS=""
@@ -24,6 +25,7 @@ CONFIG_TOOL=""
 
 # User overwriteable VARS
 CCACHE_WRAP_DIR="${CCACHE_WRAP_DIR:=/usr/lib/ccache/bin}"
+SCCACHE_WRAP_DIR="${SCCACHE_WRAP_DIR:=/usr/lib/sccache/bin}"
 LINUX_SRC_DIR="${LINUX_SRC_DIR:=/usr/src/linux}"
 
 ### FUNCTIONS ###
@@ -101,6 +103,7 @@ function help_handler() {
     echo "Usage: kernelbuilder [options...]"
     echo "  --llvm               Use the LLVM toolchain to build the kernel"
     echo "  --ccache             Prepend ccache wrappers from \${CCACHE_WRAP_DIR}"
+    echo "  --sccache            Prepend sccache wrappers from \${SCCACHE_WRAP_DIR}"
     echo "  --jobs <jobs>        Override the number of make jobs (default: \$(nproc))"
     echo "  --makeopts <opts>    Append extra makeopts"
     echo "  --cppflags <flags>   Append extra cppflags"
@@ -115,7 +118,8 @@ function help_handler() {
     echo "  -h,--help            Print this help message"
     echo ""
     echo "Environment Variables:"
-    echo "  CCACHE_WRAP_DIR   Path to ccache wrappers (default: /usr/bin/ccache)"
+    echo "  CCACHE_WRAP_DIR   Path to ccache wrappers (default: /usr/lib/ccache/bin)"
+    echo "  SCCACHE_WRAP_DIR  Path to sccache wrappers (default: /usr/lib/sccache/bin)"
     echo "  LINUX_SRC_DIR     Path to linux source (default: /usr/src/linux)"
 }
 
@@ -157,6 +161,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --ccache)
             USE_CCACHE=1
+            shift
+            ;;
+        --sccache)
+            USE_SCCACHE=1
             shift
             ;;
         --jobs)
@@ -231,12 +239,31 @@ if [[ ${EUID} != "0" ]]; then
     exit 1
 fi
 
-# Prepend ccache wrappers if enabled
+# Setup ccache environment if enabled
 if [[ ${USE_CCACHE} == 1 ]]; then
     if [[ -d ${CCACHE_WRAP_DIR} ]]; then
         PATH="${CCACHE_WRAP_DIR}:${PATH}"
     else 
         echo -e "\e[1;36m${CCACHE_WRAP_DIR}\e[1;34m does not exist!\e[0m"
+    fi
+fi
+
+# Setup sccache environment if enabled
+sccache_stop_server() {
+	if [[ -n $(pgrep sccache) ]]; then
+			sccache --stop-server
+	fi
+}
+
+if [[ ${USE_SCCACHE} == 1 ]]; then
+    if [[ -d "${SCCACHE_WRAP_DIR}" ]]; then
+        PATH="${SCCACHE_WRAP_DIR}:${PATH}"
+	    if [[ -z $(pgrep sccache) ]]; then
+			sccache --start-server
+        fi
+		trap sccache_stop_server EXIT
+    else
+        echo -e "\e[1;36m${SCCACHE_WRAP_DIR}\e[1;34m does not exist!\e[0m"
     fi
 fi
 
